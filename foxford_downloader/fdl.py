@@ -7,7 +7,7 @@ from pathlib import Path
 from lib.fns import *
 from lib.requests_cache import CachedSession
 import atexit
-from datetime import c
+from datetime import datetime
 
 
 def main(params: Dict) -> None:
