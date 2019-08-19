@@ -115,8 +115,10 @@ def main(params: Dict) -> None:
         atexit.register(lambda: done_file.close())
         todo_log_file = Path("todo_log.txt").open('a')
         atexit.register(lambda: todo_log_file.close())
+        todo_log_file.write(f"start downloading at {datetime.now('%H:%M:%S %d.%m.%Y')}\n")
 
     exe_suff = "3" if os.name == 'posix' else ""
+
 
     for course in courses_list:
         if from_todo:
@@ -133,9 +135,6 @@ def main(params: Dict) -> None:
                 done_file.write(course + '\n')
             else:
                 todo_log_file.write(f'course "{course}" returns {r.returncode}\n')
-
-        if from_todo:
-            todo_log_file.write(f"start downloading at {datetime.now('%H:%M:%S %d.%m.%Y')}\n")
 
 
 if __name__ == "__main__":
