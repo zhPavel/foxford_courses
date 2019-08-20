@@ -4,15 +4,17 @@
 
 _Сложность: средняя (для пользователей десктопов)_
 
-1. Устанавливаем Python 3.7+ и Git. На Linux есть `apt-get` (или что там), на OSX есть [`homebrew`](https://brew.sh/), под Windows есть [`chocolatey`](https://chocolatey.org/install).
+1. Устанавливаем Python 3.7+
 
-2. [Клонируем репозиторий](https://github.com/limitedeternity/foxford_courses/archive/master.zip), распаковываем, переходим в папку, где лежит **этот** гайд.
+2. Устанавливаем Git. На Linux есть `apt-get` (или что там), на OSX есть [`homebrew`](https://brew.sh/), под Windows есть [`chocolatey`](https://chocolatey.org/install).
 
-3. Открываем **здесь** терминал и выполняем `pip install -Ur requirements.txt`. (На Linux/OSX - `pip3 install -Ur requirements.txt`)
+3. [Клонируем репозиторий](https://github.com/limitedeternity/foxford_courses/archive/master.zip), распаковываем, переходим в папку, где лежит **этот** гайд.
 
-4. Выполняем `python fdl.py` (На Linux/OSX - `python3 fdl.py`).
+4. Открываем **здесь** терминал и выполняем `pip install -Ur requirements.txt`. (На Linux/OSX - `pip3 install -Ur requirements.txt`)
 
-5. Логинимся, выбираем курс и скачиваемые материалы.
+5. Выполняем `python fdl.py` (На Linux/OSX - `python3 fdl.py`).
+
+6. Логинимся, выбираем курс и скачиваемые материалы.
 
 
 <details>
