@@ -1,96 +1,104 @@
-from PyInquirer import prompt
+import atexit
 from argparse import ArgumentParser, Namespace
-import subprocess
-from typing import Dict, Iterable, List, Tuple
-import os
-from pathlib import Path
+
+from PyInquirer import prompt
+
+from foxload import download_course
 from lib.fns import *
 from lib.requests_cache import CachedSession
-import atexit
-from datetime import datetime
 
 
 def main(params: Dict) -> None:
     session: CachedSession = CachedSession()
 
-    credential_query: Dict[str, str]
-    if params["email"] and params["password"]:
-        credential_query = {"email": params["email"], "password": params["password"]}
+    email: str = params["email"] if params["email"] else prompt([
+        {
+            "type": "input",
+            "name": "email",
+            "message": "Email"
+        }
+    ])["email"]
+
+    password: str = params["password"] if params["password"] else prompt([
+        {
+            "type": "password",
+            "name": "password",
+            "message": "Password"
+        }
+    ])["password"]
+
+    if params["actions"] is not None:
+
+        def options_check_from_actions_param(actions_param: str) -> List[str]:
+            lst: List[str] = []
+            if 'r' in actions_param:
+                lst.append("Resources")
+            if 'h' in actions_param:
+                lst.append("Homework")
+            if 'c' in actions_param:
+                lst.append("Conspects")
+            return lst
+
+        actions = options_check_from_actions_param(params["actions"])
     else:
-        credential_query = prompt([
+
+        options_check: Dict[str, List[str]] = prompt([
             {
-                "type": "input",
-                "name": "email",
-                "message": "Email"
-            },
-            {
-                "type": "password",
-                "name": "password",
-                "message": "Password"
+                "type": "checkbox",
+                "message": "What to fetch",
+                "name": "actions",
+                "choices": [
+                    {
+                        "name": "Resources",
+                        "checked": True
+                    },
+                    {
+                        "name": "Homework"
+                    },
+                    {
+                        "name": "Conspects"
+                    }
+                ]
             }
         ])
 
-    if params["actions"]:
-        actions = params["actions"]
-    else:
-
-        def options_check_from_actions_param(actions: str) -> Dict[str, List[str]]:
-            lst = []
-            if 'r' in actions:
-                lst.append("Resources")
-            if 'h' in actions:
-                lst.append("Homework")
-            if 'c' in actions:
-                lst.append("Conspects")
-            return {'actions': lst}
-
-        options_check: Dict[str, List[str]] = \
-            options_check_from_actions_param(params["actions"]) if params["actions"] else prompt([
-                {
-                    "type": "checkbox",
-                    "message": "What to fetch",
-                    "name": "actions",
-                    "choices": [
-                        {
-                            "name": "Resources",
-                            "checked": True
-                        },
-                        {
-                            "name": "Homework"
-                        },
-                        {
-                            "name": "Conspects"
-                        }
-                    ]
-                }
-            ])
-
-        actions = ""
-        if "Resources" in options_check["actions"]:
-            actions += 'r'
-        if "Homework" in options_check["actions"]:
-            actions += 'h'
-        if "Conspects" in options_check["actions"]:
-            actions += 'c'
+        actions = options_check["actions"]
 
     courses_list: List[str]
     from_todo = False
-    if params["course_name"]:
-        courses_list = [params["course_name"]]
+
+    user_courses = None
+    if params["savelist"]:
+        # TODO: get_user_courses() занимает очень много времени. Можно оптимизировать распараллелив, используя aiohttp
+        user_courses: Tuple[Dict] = get_user_courses(
+            login(
+                email,
+                password,
+                session
+            )
+        )
+        with Path("list.txt").open('w') as list_file:
+            list_file.write('\n'.join(
+                map(lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}", user_courses)
+            ))
+
+    if params["course"]:
+        courses_list = [params["course"]]
     else:
         try:
             with Path("todo.txt").open() as todo:
-                courses_list = [line for line in todo.readlines() if line != "" and not line.isspace()]
+                courses_list = [line.rstrip() for line in todo.readlines() if line != "" and not line.isspace()]
                 from_todo = True
         except FileNotFoundError:
 
-            user_courses: Tuple[Dict] = get_user_courses(
-                login(
-                    credential_query["email"],
-                    credential_query["password"],
-                    session
+            if user_courses is not None:
+                user_courses: Tuple[Dict] = get_user_courses(
+                    login(
+                        email,
+                        password,
+                        session
+                    )
                 )
-            )
 
             course_query: Dict[str, str] = prompt([
                 {
@@ -104,10 +112,14 @@ def main(params: Dict) -> None:
 
             courses_list = [course_query["course_name"]]
 
-    if from_todo:
+    if not from_todo:
+        download_course(email, password, courses_list[0], actions)
+
+    else:
+
         try:
             with Path("done.txt").open() as done_file:
-                done_courses = set(done_file.readlines())
+                done_courses = set([line.rstrip() for line in done_file.readlines()])
         except FileNotFoundError:
             done_courses = set()
 
@@ -115,33 +127,33 @@ def main(params: Dict) -> None:
         atexit.register(lambda: done_file.close())
         todo_log_file = Path("todo_log.txt").open('a')
         atexit.register(lambda: todo_log_file.close())
-        todo_log_file.write(f"start downloading at {datetime.now('%H:%M:%S %d.%m.%Y')}\n")
+        todo_log_file.write(f"start downloading at {datetime.now().strftime('%H:%M:%S %d.%m.%Y')}\n")
 
-    exe_suff = "3" if os.name == 'posix' else ""
-
-
-    for course in courses_list:
-        if from_todo:
-            if course in done_courses:
+        for course_name in courses_list:
+            if course_name in done_courses:
                 continue
 
-        print(f'Start downloading "{course}"')
-        r = subprocess.run(f'python{exe_suff} fdl.py --email {credential_query["email"]}'
-                           f' --password {credential_query["password"]} --course_name "{course}"'
-                           f' --actions "{actions}"', shell=True)
-        if from_todo:
-            if r.returncode == 0:
-                done_courses.add(course)
-                done_file.write(course + '\n')
+            print(f'Start downloading "{course_name}"')
+            try:
+                download_course(email, password, course_name, actions)
+            except Exception as e:
+                from traceback import format_exception
+                todo_log_file.write(f'course "{course_name}" raise exception\n')
+                todo_log_file.write(''.join(format_exception(type(e), e, e.__traceback__)))
             else:
-                todo_log_file.write(f'course "{course}" returns {r.returncode}\n')
+                done_courses.add(course_name)
+                done_file.write(course_name + '\n')
 
 
 if __name__ == "__main__":
+
     parser: ArgumentParser = ArgumentParser()
     parser.add_argument("--email", type=str, required=False)
     parser.add_argument("--password", type=str, required=False)
     parser.add_argument("--course", type=str, required=False)
     parser.add_argument("--actions", type=str, required=False)
+    parser.add_argument('--savelist', action='store_true', required=False)
     args: Namespace = parser.parse_args()
+    # import cProfile
+    # cProfile.run("main(args.__dict__)")
     main(args.__dict__)

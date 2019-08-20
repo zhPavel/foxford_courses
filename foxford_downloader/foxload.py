@@ -1,9 +1,5 @@
-import asyncio
-from argparse import ArgumentParser, Namespace
 from itertools import chain
 from multiprocessing import Pool, cpu_count
-from pathlib import Path
-from typing import Dict, Iterable, List, Tuple
 
 from lib.browser import terminate_browser_instance
 from lib.fns import *
@@ -11,9 +7,9 @@ from lib.helpers import Logger, pipe
 from lib.requests_cache import CachedSession
 
 
-def main(params: Dict) -> None:
+def download_course(email: str, password: str, course_name: str, actions: List[str]) -> None:
     session: CachedSession = CachedSession()
-    credential_query: Dict[str, str] = {"email": params["email"], "password": params["password"]}
+    credential_query: Dict[str, str] = {"email": email, "password": password}
 
     Logger.log("Fetching course list...")
 
@@ -25,11 +21,9 @@ def main(params: Dict) -> None:
         )
     )
 
-    course_query: Dict[str, str] = {"course": params["course"]}
-
     selected_course: Dict = next(
         filter(
-            lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}" == course_query["course"],
+            lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}" == course_name,
             user_courses
         )
     )
@@ -60,19 +54,7 @@ def main(params: Dict) -> None:
         lambda map_of_filters: map(tuple, map_of_filters)
     )(selected_course["resource_id"])
 
-    def options_check_from_actions_param(actions: str) -> Dict[str, List[str]]:
-        lst = []
-        if 'r' in actions:
-            lst.append("Resources")
-        if 'h' in actions:
-            lst.append("Homework")
-        if 'c' in actions:
-            lst.append("Conspects")
-        return {'actions': lst}
-
-    options_check: Dict[str, List[str]] = options_check_from_actions_param(params["actions"])
-
-    if "Resources" in options_check["actions"]:
+    if "Resources" in actions:
         Logger.warn("Resources collection started")
         Logger.log("Fetching resources links...")
 
@@ -117,7 +99,7 @@ def main(params: Dict) -> None:
     coro_list = []
     semaphore = asyncio.Semaphore(2 if cpu_count() > 1 else 1)
 
-    if "Homework" in options_check["actions"]:
+    if "Homework" in actions:
         Logger.warn("Homework collection started")
         Logger.log("Collecting tasks...")
 
@@ -175,7 +157,7 @@ def main(params: Dict) -> None:
             )
         )
 
-    if "Conspects" in options_check["actions"]:
+    if "Conspects" in actions:
         Logger.warn("Conspects collection started")
 
         conspect_urls: Iterable[Tuple[str]] = construct_conspect_urls(
@@ -239,13 +221,3 @@ def main(params: Dict) -> None:
         Logger.warn("Collection finished. Quitting...")
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
         asyncio.get_event_loop().run_until_complete(terminate_browser_instance())
-
-
-if __name__ == "__main__":
-    parser: ArgumentParser = ArgumentParser()
-    parser.add_argument("--email", type=str, required=True)
-    parser.add_argument("--password", type=str, required=True)
-    parser.add_argument("--course", type=str, required=True)
-    parser.add_argument("--actions", type=str, required=True)
-    args: Namespace = parser.parse_args()
-    main(args.__dict__)
