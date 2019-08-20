@@ -91,7 +91,7 @@ def main(params: Dict) -> None:
                 from_todo = True
         except FileNotFoundError:
 
-            if user_courses is not None:
+            if user_courses is None:
                 user_courses: Tuple[Dict] = get_user_courses(
                     login(
                         email,

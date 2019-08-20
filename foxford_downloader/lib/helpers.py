@@ -3,7 +3,7 @@ from traceback import format_exc
 from typing import Any, Callable, Dict, Tuple, Union
 
 
-class Logger():
+class Logger:
     @staticmethod
     def error(message: str) -> None:
         print(f"[\033[91mE\033[0m]: \033[1m{message}\033[0m")

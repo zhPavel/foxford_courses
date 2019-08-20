@@ -96,9 +96,9 @@ def get_user_courses(session: CachedSession) -> Tuple[Dict]:
     return recursive_collection(1)
 
 
-class get_course_lessons():
+class get_course_lessons:
     @error_handler
-    def __new__(self, course_id: int, session: CachedSession) -> Iterable[Dict]:
+    def __new__(cls, course_id: int, session: CachedSession) -> Iterable[Dict]:
         lesson_list_at_somewhere_response: CachedResponse = session.get(
             f"https://foxford.ru/api/courses/{course_id}/lessons",
             headers={
@@ -115,25 +115,25 @@ class get_course_lessons():
         if "id" not in lesson_list_at_somewhere_response.json()["lessons"][0]:
             return {"fatal_error": "Lesson structure is unknown"}
 
-        self.course_id = course_id
-        self.session = session
+        cls.course_id = course_id
+        cls.session = session
 
         return pipe(
             lambda json: (
-                *self.recursive_collection(
-                    self,
+                *cls.recursive_collection(
+                    cls,
                     "before",
                     json["cursors"]["before"]
                 ),
                 *json["lessons"],
-                *self.recursive_collection(
-                    self,
+                *cls.recursive_collection(
+                    cls,
                     "after",
                     json["cursors"]["after"]
                 )
             ),
             lambda lessons: map(
-                lambda lesson: self.lesson_extension(self, lesson),
+                lambda lesson: cls.lesson_extension(cls, lesson),
                 lessons
             )
         )(lesson_list_at_somewhere_response.json())
@@ -198,12 +198,12 @@ class get_course_lessons():
         return lesson_extension_response.json()
 
 
-class get_resources_for_lessons():
-    def __new__(self, course_id: int, webinar_ids: Iterable[int], session: CachedSession) -> Tuple[Dict]:
-        self.course_id = course_id
-        self.webinar_ids = webinar_ids
-        self.session = session
-        return self.recursive_collection(self)
+class get_resources_for_lessons:
+    def __new__(cls, course_id: int, webinar_ids: Iterable[int], session: CachedSession) -> Tuple[Dict]:
+        cls.course_id = course_id
+        cls.webinar_ids = webinar_ids
+        cls.session = session
+        return cls.recursive_collection(cls)
 
     @error_handler
     def recursive_collection(self) -> Tuple[Dict]:
