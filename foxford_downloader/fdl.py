@@ -116,7 +116,6 @@ def main(params: Dict) -> None:
         download_course(email, password, courses_list[0], actions)
 
     else:
-
         try:
             with Path("done.txt").open() as done_file:
                 done_courses = set([line.rstrip() for line in done_file.readlines()])

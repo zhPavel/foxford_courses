@@ -43,7 +43,8 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
         tuple,
         lambda available_lessons: map(
             lambda that_include: filter(
-                lambda lesson: "available" in lesson[f"{that_include}_status"],
+                # {}_available если доступно, иначе {}_not_available
+                lambda lesson: "not" not in lesson[f"{that_include}_status"],
                 available_lessons
             ), [
                 "webinar",

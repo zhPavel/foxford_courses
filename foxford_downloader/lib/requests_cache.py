@@ -34,7 +34,6 @@ class CachedHTTPAdapter(HTTPAdapter):
 
         if isinstance(req.url, bytes):
             response.url = req.url.decode("utf-8")
-
         else:
             response.url = req.url
 
@@ -44,8 +43,8 @@ class CachedHTTPAdapter(HTTPAdapter):
         return response
 
 
-class CachedSession():
-    def __new__(self):
+class CachedSession:
+    def __new__(cls):
         s = Session()
         a = CachedHTTPAdapter(max_retries=3)
         s.mount("http://", a)

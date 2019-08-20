@@ -192,7 +192,8 @@ class get_course_lessons:
         if lesson_extension_response.status_code != 200:
             return {"fatal_error": "Lesson extension fetch has failed"}
 
-        if not {"webinar_id", "access_state", "webinar_status", "is_locked"}.issubset(set(lesson_extension_response.json())):
+        if not {"webinar_id", "access_state", "webinar_status", "is_locked"}.issubset(
+                set(lesson_extension_response.json())):
             return {"fatal_error": "Lesson extension structure is unknown"}
 
         return lesson_extension_response.json()
