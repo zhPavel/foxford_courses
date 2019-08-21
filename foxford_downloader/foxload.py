@@ -29,7 +29,6 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
     )
 
     Logger.log("Fetching lesson list...")
-
     (
         course_lessons_with_video,
         course_lessons_with_homework,
@@ -43,8 +42,10 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
         tuple,
         lambda available_lessons: map(
             lambda that_include: filter(
-                # {}_available если доступно, иначе {}_not_available
-                lambda lesson: "not" not in lesson[f"{that_include}_status"],
+                # Бывает 'available' | 'none', бывает 'webinar_available' | 'webinar_not_available'
+                lambda lesson: "available" in lesson[f"{that_include}_status"]
+                               and
+                               "not_available" not in lesson[f"{that_include}_status"],
                 available_lessons
             ), [
                 "webinar",
