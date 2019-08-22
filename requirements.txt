@@ -4,3 +4,4 @@ more-itertools==7.1.0
 PyInquirer==1.0.3
 git+git://github.com/limitedeternity/pyppeteer@0.0.26#egg=pyppeteer
 async_lru==1.0.2
+psutil=5.6.3
