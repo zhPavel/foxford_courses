@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup, Tag
 from more_itertools import unique_everseen
 from pyppeteer import connect
 
-from .browser import get_browser_connection_url
+from .browser import BrowserConnectionManager
 from .helpers import error_handler, pipe
 from .requests_cache import CachedResponse, CachedSession
 
@@ -165,7 +165,7 @@ class get_course_lessons:
                     self,
                     direction,
                     lesson_list_at_direction_response
-                    .json()["cursors"][direction]
+                        .json()["cursors"][direction]
                 ),
                 *lesson_list_at_direction_response.json()["lessons"]
             )
@@ -176,7 +176,7 @@ class get_course_lessons:
                     self,
                     direction,
                     lesson_list_at_direction_response
-                    .json()["cursors"][direction]
+                        .json()["cursors"][direction]
                 )
             )
 
@@ -340,14 +340,14 @@ def build_dir_hierarchy(course_name: str, course_subtitle: str, grade: str, less
         constructed_path: Path = Path(
             Path.cwd(),
             (
-                f"({grade}) " +
-                sanitize_string(course_name) +
-                " - " +
-                sanitize_string(course_subtitle)
+                    f"({grade}) " +
+                    sanitize_string(course_name) +
+                    " - " +
+                    sanitize_string(course_subtitle)
             ).strip(),
             (
-                f"({lesson['number']}) " +
-                sanitize_string(lesson['title'])
+                    f"({lesson['number']}) " +
+                    sanitize_string(lesson['title'])
             ).strip()
         )
 
@@ -409,7 +409,8 @@ def download_resources(res_with_path: Dict, session: CachedSession) -> None:
                     json
                 ),
                 lambda messages: map(
-                    lambda msg: f"[{datetime.fromtimestamp(msg['meta']['time'])}] {msg['meta']['user_name']}: {parse.unquote(msg['meta']['body'])}",
+                    lambda
+                        msg: f"[{datetime.fromtimestamp(msg['meta']['time'])}] {msg['meta']['user_name']}: {parse.unquote(msg['meta']['body'])}",
                     messages
                 ),
                 lambda message_log: "\n".join(message_log),
@@ -419,9 +420,9 @@ def download_resources(res_with_path: Dict, session: CachedSession) -> None:
         pipe(
             lambda json: filter(
                 lambda obj:
-                    (obj["meta"]["action"] == "add_tab" or
-                     obj["meta"]["action"] == "change_tab") and
-                    obj["meta"]["content_type"] == "pdf",
+                (obj["meta"]["action"] == "add_tab" or
+                 obj["meta"]["action"] == "change_tab") and
+                obj["meta"]["content_type"] == "pdf",
                 json
             ),
             lambda pdfs: map(
@@ -434,7 +435,7 @@ def download_resources(res_with_path: Dict, session: CachedSession) -> None:
                 lambda item: download_url(
                     item[1],
                     res_with_path["destination"]
-                    .joinpath(f"{item[0]}.pdf")
+                        .joinpath(f"{item[0]}.pdf")
                 ),
                 enumed_urls
             ),
@@ -448,54 +449,76 @@ def download_resources(res_with_path: Dict, session: CachedSession) -> None:
     )
 
 
-async def save_page(url: str, path: Path, folder: str, cookies: Iterable[Dict], semaphore: asyncio.Semaphore) -> None:
-    async with semaphore:
+async def save_page(url: str, path: Path, folder: str, cookies: Iterable[Dict],
+                    connection_mng: BrowserConnectionManager) -> None:
+    try:
         if not path.joinpath(folder).joinpath(url.split("/")[-1] + ".pdf").exists():
-            browser_endpoint = await get_browser_connection_url()
+            print(url)
+            browser_endpoint = await connection_mng.get_connection_url()
+            print("p-7")
             browser = await connect(browserWSEndpoint=browser_endpoint)
+            print("p-6")
             page = await browser.newPage()
+            print("p-5")
             await page.emulateMedia("screen")
+            print("p-4")
             await page.setViewport({"width": 411, "height": 823})
+            print("p-3")
             await page.setCookie(*cookies)
-            await page.goto(url, {"waitUntil": "domcontentloaded"})
+            print("p-2")
+            await page.setRequestInterception(False)
+            print("p-1")
+            try:
+                await page.goto(url, {"waitUntil": "domcontentloaded", "timeout": 5000})
+            except BaseException as e:
+                print(e)
+                await connection_mng.terminate_connection(browser)
+                print("term")
+                return
+            print(f"p.  {url.split('/')[-3]}/{url.split('/')[-1]}")
 
             if await page.waitForFunction("() => window.MathJax", timeout=10000):
                 await asyncio.sleep(3.5)
+                print("p1")
                 await page.evaluate("""
-                    async function() {
-                        await new Promise(function(resolve) {
-                            window.MathJax.Hub.Register.StartupHook(
-                                "End",
-                                resolve
-                            )
-                        })
-                    }
-                """)
+                        async function() {
+                            await new Promise(function(resolve) {
+                                window.MathJax.Hub.Register.StartupHook(
+                                    "End",
+                                    resolve
+                                )
+                            })
+                        }
+                    """)
                 await asyncio.sleep(0.1)
-
+            print("p2")
             await page.evaluate("""
-                document.querySelectorAll(".toggle_element > .toggle_content").forEach(el => el.style.display = "block")
-            """, force_expr=True)
+                    document.querySelectorAll(".toggle_element > .toggle_content").forEach(el => el.style.display = "block")
+                """, force_expr=True)
             await asyncio.sleep(0.1)
-
+            print("p3")
             await page.evaluate("""
-                document.querySelector("#cc_container").remove()
-            """, force_expr=True)
+                    document.querySelector("#cc_container").remove()
+                """, force_expr=True)
             await asyncio.sleep(0.1)
 
             if not path.joinpath(folder).exists():
                 path.joinpath(folder).mkdir()
 
             path.joinpath(folder).joinpath(url.split("/")[-1] + ".pdf").touch()
-
+            print("p4")
             await page.pdf({
                 "path": str(path.joinpath(folder).joinpath(url.split("/")[-1] + ".pdf")),
                 "printBackground": True
             })
-
+            print("p5")
             await page.close()
+            print("p6")
             await browser.disconnect()
 
         print(
-            f"-> {folder}/{url.split('/')[-3]}/{url.split('/')[-1]}: \033[92m\u2713\033[0m"
+            f"from {url.split('/')[-3]}/{url.split('/')[-1]} -> {path.stem}/{folder}/{url.split('/')[-1]}:"
+            f" \033[92m\u2713\033[0m"
         )
+    except BaseException as e:
+        print(e)

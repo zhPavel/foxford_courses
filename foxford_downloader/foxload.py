@@ -1,7 +1,7 @@
 from itertools import chain
 from multiprocessing import Pool, cpu_count
 
-from lib.browser import terminate_browser_instance
+from lib.browser import BrowserConnectionManager
 from lib.fns import *
 from lib.helpers import Logger, pipe
 from lib.requests_cache import CachedSession
@@ -99,7 +99,7 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
         Logger.warn("Resources collection finished")
 
     coro_list = []
-    semaphore = asyncio.Semaphore(2 if cpu_count() > 1 else 1)
+    browser_connection_manager = BrowserConnectionManager()
 
     if "Homework" in actions:
         Logger.warn("Homework collection started")
@@ -140,7 +140,7 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
                             url,
                             path,
                             "homework",
-                            map(
+                            list(map(
                                 lambda item: {
                                     "name": item[0],
                                     "value": item[1],
@@ -148,8 +148,8 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
                                     "path": "/"
                                 },
                                 session.cookies.get_dict().items()
-                            ),
-                            semaphore
+                            )),
+                            browser_connection_manager
                         ),
                         url_tuple
                     ),
@@ -201,7 +201,7 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
                                 },
                                 session.cookies.get_dict().items()
                             ),
-                            semaphore
+                            browser_connection_manager
                         ),
                         url_tuple
                     ),
@@ -214,12 +214,19 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
     if coro_list:
         Logger.warn("Actual collection started")
 
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait(
-                coro_list
-            )
-        )
+        # 'https://foxford.ru/lessons/27670/tasks/30570'
+        # 'C:\\Users\\User\\Desktop\\Питонистический цирк госпожи Питуньи и ее Питонов\\pyCharm\\foxford_courses\\foxford_downloader\\(6 класс) География - Базовый уровень\\(2) Система географических координ'
+        # 'homework'
+
+        for coro in coro_list:
+            asyncio.get_event_loop().run_until_complete(coro)
+
+        #asyncio.get_event_loop().run_until_complete(
+        #    asyncio.wait(
+        #        coro_list
+        #    )
+        #)
 
         Logger.warn("Collection finished. Quitting...")
         asyncio.get_event_loop().run_until_complete(asyncio.sleep(0.5))
-        asyncio.get_event_loop().run_until_complete(terminate_browser_instance())
+        asyncio.get_event_loop().run_until_complete(browser_connection_manager.terminate_connection())
