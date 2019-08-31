@@ -77,7 +77,7 @@ def main(params: Dict) -> None:
                 session
             )
         )
-        with Path("list.txt").open('w') as list_file:
+        with Path("list.txt").open('w', encoding='utf-8') as list_file:
             list_file.write('\n'.join(
                 map(lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}", user_courses)
             ))
@@ -86,8 +86,8 @@ def main(params: Dict) -> None:
         courses_list = [params["course"]]
     else:
         try:
-            with Path("todo.txt").open() as todo:
-                courses_list = [line.rstrip() for line in todo.readlines() if line != "" and not line.isspace()]
+            with Path("todo.txt").open(encoding='utf-8') as todo:
+                courses_list = [line for line in todo.readlines() if line != "" and not line.isspace()]
                 from_todo = True
         except FileNotFoundError:
 
@@ -117,31 +117,30 @@ def main(params: Dict) -> None:
 
     else:
         try:
-            with Path("done.txt").open() as done_file:
-                done_courses = set([line.rstrip() for line in done_file.readlines()])
+            with Path("done.txt").open(encoding='utf-8') as done_file:
+                done_courses = set([line for line in done_file.readlines()])
         except FileNotFoundError:
             done_courses = set()
-
-        done_file = Path("done.txt").open('a')
-        atexit.register(lambda: done_file.close())
-        todo_log_file = Path("todo_log.txt").open('a')
-        atexit.register(lambda: todo_log_file.close())
-        todo_log_file.write(f"start downloading at {datetime.now().strftime('%H:%M:%S %d.%m.%Y')}\n")
+        
+        with Path("todo_log.txt").open('a', encoding='utf-8') as todo_log_file:
+            todo_log_file.write(f"start downloading at {datetime.now().strftime('%H:%M:%S %d.%m.%Y')}\n")
 
         for course_name in courses_list:
             if course_name in done_courses:
                 continue
-
             print(f'Start downloading "{course_name}"')
             try:
                 download_course(email, password, course_name, actions)
             except Exception as e:
                 from traceback import format_exception
-                todo_log_file.write(f'course "{course_name}" raise exception\n')
-                todo_log_file.write(''.join(format_exception(type(e), e, e.__traceback__)))
+                with Path("todo_log.txt").open('a', encoding='utf-8') as todo_log_file:
+                    todo_log_file.write(f'course "{course_name}" raise exception\n')
+                    todo_log_file.write(''.join(format_exception(type(e), e, e.__traceback__)))
             else:
                 done_courses.add(course_name)
+                done_file = Path("done.txt").open('a', encoding='utf-8')
                 done_file.write(course_name + '\n')
+                done_file.close()
 
 
 if __name__ == "__main__":

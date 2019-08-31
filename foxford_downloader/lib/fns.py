@@ -363,6 +363,8 @@ def build_dir_hierarchy(course_name: str, course_subtitle: str, grade: str, less
 
 
 def download_resources(res_with_path: Dict, session: CachedSession) -> None:
+    from json import dump as json_dump
+
     @error_handler
     def download_url(url: str, dest: Path) -> None:
         with requests.get(url, stream=True) as r:
@@ -442,8 +444,62 @@ def download_resources(res_with_path: Dict, session: CachedSession) -> None:
             lambda task_map: deque(task_map, 0)
         )(events_response.json())
 
+    @error_handler
+    def save_event_data() -> None:
+        if res_with_path["destination"].joinpath("events.json").exists():
+            return
+
+        events_response: CachedResponse = session.get(
+            res_with_path["events"]
+        )
+
+        if events_response.status_code != 200:
+            return {"fatal_error": "Events fetch has failed"}
+
+        with res_with_path["destination"].joinpath("events.json").open("w") as f:
+            json_dump(events_response.json(), f, indent=4)
+
     save_video()
     parse_and_save_event_data()
+    save_event_data()
+    print(
+        f"-> {res_with_path['destination'].name}: \033[92m\u2713\033[0m"
+    )
+
+
+def download_events_json(res_with_path: Dict, session: CachedSession) -> None:
+    @error_handler
+    def download_url(url: str, dest: Path) -> None:
+        with requests.get(url, stream=True) as r:
+            if r.status_code != 200:
+                return {"fatal_error": "Video fetch has failed"}
+
+            with dest.open("wb") as f:
+                deque(
+                    map(
+                        lambda chunk: f.write(chunk),
+                        filter(None, r.iter_content(10 * 1024))
+                    ),
+                    0
+                )
+
+    @error_handler
+    def save_event_data() -> None:
+        from json import dump
+        if res_with_path["destination"].joinpath("events.json").exists():
+            return
+
+        events_response: CachedResponse = session.get(
+            res_with_path["events"]
+        )
+
+        if events_response.status_code != 200:
+            return {"fatal_error": "Events fetch has failed"}
+
+        with res_with_path["destination"].joinpath("events.json").open("w") as f:
+            dump(events_response.json(), f, indent=4)
+
+    save_event_data()
     print(
         f"-> {res_with_path['destination'].name}: \033[92m\u2713\033[0m"
     )

@@ -21,12 +21,17 @@ def download_course(email: str, password: str, course_name: str, actions: List[s
         )
     )
 
-    selected_course: Dict = next(
-        filter(
-            lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}" == course_name,
-            user_courses
+    try:
+        selected_course: Dict = next(
+            filter(
+                lambda obj: f"({obj['grades_range']}) {obj['name']} - {obj['subtitle']}" == course_name,
+                user_courses
+            )
         )
-    )
+    except StopIteration:
+        import sys
+        print("Bad course name", file=sys.stderr)
+        raise
 
     Logger.log("Fetching lesson list...")
     (
